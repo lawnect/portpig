@@ -104,8 +104,16 @@ enum L10n {
         format("action.kill_process", localizedProcessName(processName), Int64(pid))
     }
 
+    static func copyAddressHelp(_ address: String) -> String {
+        format("action.copy_address", fallback: "Copy %@", address)
+    }
+
     static func openInBrowserHelp(_ url: String) -> String {
-        format("action.open_in_browser", fallback: "Double-click to open %@", url)
+        format("action.open_in_browser", fallback: "Open %@ in browser", url)
+    }
+
+    static var addressCopied: String {
+        string("status.address_copied", fallback: "Address copied")
     }
 
     static func protectedProcessHelp(processName: String, pid: Int32) -> String {

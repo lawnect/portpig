@@ -1,8 +1,10 @@
 "action.clear" = "مسح";
+"action.copy_address" = "نسخ %@";
 "action.kill_process" = "إنهاء %@ (PID %lld)";
-"action.open_in_browser" = "انقر نقرًا مزدوجًا لفتح %@";
+"action.open_in_browser" = "فتح %@ في المتصفح";
 "action.quit" = "إنهاء";
 "action.refresh" = "تحديث";
+"status.address_copied" = "تم نسخ العنوان";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = "بيئة تشغيل .NET";
 "classification.name..NET web server" = "خادم ويب .NET";

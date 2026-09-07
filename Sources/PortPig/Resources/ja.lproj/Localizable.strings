@@ -1,8 +1,10 @@
 "action.clear" = "消去";
+"action.copy_address" = "%@をコピー";
 "action.kill_process" = "%@（PID %lld）を強制終了";
-"action.open_in_browser" = "ダブルクリックして%@を開く";
+"action.open_in_browser" = "%@をブラウザで開く";
 "action.quit" = "終了";
 "action.refresh" = "更新";
+"status.address_copied" = "アドレスをコピーしました";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = ".NETランタイム";
 "classification.name..NET web server" = ".NET Webサーバー";

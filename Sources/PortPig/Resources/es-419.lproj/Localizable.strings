@@ -1,8 +1,10 @@
 "action.clear" = "Limpiar";
+"action.copy_address" = "Copiar %@";
 "action.kill_process" = "Forzar cierre de %@ (PID %lld)";
-"action.open_in_browser" = "Haz doble clic para abrir %@";
+"action.open_in_browser" = "Abrir %@ en el navegador";
 "action.quit" = "Salir";
 "action.refresh" = "Actualizar";
+"status.address_copied" = "Dirección copiada";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = "Entorno de ejecución .NET";
 "classification.name..NET web server" = "Servidor web de .NET";

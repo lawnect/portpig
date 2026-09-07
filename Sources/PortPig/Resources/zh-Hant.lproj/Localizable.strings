@@ -1,8 +1,10 @@
 "action.clear" = "清除";
+"action.copy_address" = "複製 %@";
 "action.kill_process" = "終止 %@（PID %lld）";
-"action.open_in_browser" = "按兩下以開啟 %@";
+"action.open_in_browser" = "在瀏覽器中開啟 %@";
 "action.quit" = "結束";
 "action.refresh" = "重新整理";
+"status.address_copied" = "位址已複製";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = ".NET 執行環境";
 "classification.name..NET web server" = ".NET 網頁伺服器";

@@ -1,8 +1,10 @@
 "action.clear" = "साफ़ करें";
+"action.copy_address" = "%@ कॉपी करें";
 "action.kill_process" = "%@ (PID %lld) को समाप्त करें";
-"action.open_in_browser" = "%@ खोलने के लिए डबल-क्लिक करें";
+"action.open_in_browser" = "%@ को ब्राउज़र में खोलें";
 "action.quit" = "बंद करें";
 "action.refresh" = "रीफ़्रेश करें";
+"status.address_copied" = "पता कॉपी किया गया";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = ".NET रनटाइम";
 "classification.name..NET web server" = ".NET वेब सर्वर";

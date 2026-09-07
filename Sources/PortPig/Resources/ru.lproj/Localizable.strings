@@ -1,8 +1,10 @@
 "action.clear" = "Очистить";
+"action.copy_address" = "Скопировать %@";
 "action.kill_process" = "Завершить %@ (PID %lld)";
-"action.open_in_browser" = "Дважды нажмите, чтобы открыть %@";
+"action.open_in_browser" = "Открыть %@ в браузере";
 "action.quit" = "Выйти";
 "action.refresh" = "Обновить";
+"status.address_copied" = "Адрес скопирован";
 "app.name" = "PortPig";
 "classification.name..NET runtime" = "Среда выполнения .NET";
 "classification.name..NET web server" = "Веб-сервер .NET";

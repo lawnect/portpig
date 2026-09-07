@@ -759,6 +759,7 @@ private struct PortRowView: View {
     let onKill: () -> Void
     @State private var isShowingKillConfirmation = false
     @State private var isShowingProtectionExplanation = false
+    @State private var copyFeedbackID: UUID?
 
     private var classification: PortClassification {
         entry.classification
@@ -802,17 +803,32 @@ private struct PortRowView: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
 
-                    Text(entry.endpoint)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                    if canOpenInBrowser {
+                        Button(action: openInBrowser) {
+                            endpointLabel
+                        }
+                        .buttonStyle(.plain)
+                        .help(L10n.openInBrowserHelp(browserURL?.absoluteString ?? ""))
+                    } else {
+                        endpointLabel
+                    }
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) {
-                openInBrowser()
+
+            Button(action: copyAddress) {
+                Image(systemName: copyFeedbackID == nil ? "doc.on.doc" : "checkmark.circle.fill")
+                    .foregroundStyle(copyFeedbackID == nil ? Color.secondary : Color.green)
             }
-            .help(L10n.openInBrowserHelp(entry.browserURL?.absoluteString ?? ""))
+            .buttonStyle(.borderless)
+            .help(copyFeedbackID == nil ? L10n.copyAddressHelp(addressToCopy) : L10n.addressCopied)
+
+            if canOpenInBrowser {
+                Button(action: openInBrowser) {
+                    Image(systemName: "safari")
+                }
+                .buttonStyle(.borderless)
+                .help(L10n.openInBrowserHelp(browserURL?.absoluteString ?? ""))
+            }
 
             Button(role: protectionReason == nil ? .destructive : nil) {
                 if protectionReason == nil {
@@ -872,8 +888,49 @@ private struct PortRowView: View {
         }
     }
 
+    private var browserURL: URL? {
+        classification.isWebServer ? entry.browserURL : nil
+    }
+
+    private var canOpenInBrowser: Bool {
+        browserURL != nil
+    }
+
+    private var addressToCopy: String {
+        browserURL?.absoluteString ?? entry.endpoint
+    }
+
+    private var endpointLabel: some View {
+        Text(entry.endpoint)
+            .font(.caption2)
+            .foregroundStyle(canOpenInBrowser ? .secondary : .tertiary)
+            .lineLimit(1)
+    }
+
+    private func copyAddress() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(addressToCopy, forType: .string)
+
+        let feedbackID = UUID()
+        withAnimation(.easeInOut(duration: 0.15)) {
+            copyFeedbackID = feedbackID
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard copyFeedbackID == feedbackID else {
+                return
+            }
+
+            withAnimation(.easeInOut(duration: 0.15)) {
+                copyFeedbackID = nil
+            }
+        }
+    }
+
     private func openInBrowser() {
-        guard let url = entry.browserURL else {
+        guard let url = browserURL else {
             return
         }
 

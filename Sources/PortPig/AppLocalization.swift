@@ -20,10 +20,79 @@ enum L10n {
     static var ok: String { string("action.ok") }
     static var filter: String { string("label.filter") }
     static var port: String { string("label.port") }
+    static var portDetailsTitle: String {
+        string("port_details.title", fallback: "Port Details")
+    }
+    static var connectionSection: String {
+        string("port_details.section.connection", fallback: "Connection")
+    }
+    static var processSection: String {
+        string("port_details.section.process", fallback: "Process")
+    }
+    static var classificationSection: String {
+        string("port_details.section.classification", fallback: "Classification")
+    }
+    static var addressLabel: String {
+        string("port_details.address", fallback: "Address")
+    }
+    static var browserURLLabel: String {
+        string("port_details.browser_url", fallback: "Browser URL")
+    }
+    static var pidLabel: String {
+        string("port_details.pid", fallback: "PID")
+    }
+    static var executableLabel: String {
+        string("port_details.executable", fallback: "Executable")
+    }
+    static var parentPIDLabel: String {
+        string("port_details.parent_pid", fallback: "Parent PID")
+    }
+    static var launchChainLabel: String {
+        string("port_details.launch_chain", fallback: "Launch chain")
+    }
+    static var serviceLabel: String {
+        string("port_details.service", fallback: "Service")
+    }
+    static var detectedFromLabel: String {
+        string("port_details.detected_from", fallback: "Detected from")
+    }
+    static var currentUser: String {
+        string("port_details.current_user", fallback: "Current user")
+    }
+    static var administrator: String {
+        string("port_details.administrator", fallback: "Administrator")
+    }
+    static var otherUser: String {
+        string("port_details.other_user", fallback: "Other user")
+    }
+    static var unknownValue: String {
+        string("port_details.unknown", fallback: "Unknown")
+    }
+    static var terminationAllowed: String {
+        string("port_details.termination_allowed", fallback: "Allowed")
+    }
+    static var terminationProtected: String {
+        string("port_details.termination_protected", fallback: "Protected")
+    }
+    static var copyAddress: String {
+        string("action.copy_address_short", fallback: "Copy Address")
+    }
+    static var revealExecutable: String {
+        string("action.reveal_executable", fallback: "Reveal Executable")
+    }
+    static var openInBrowser: String {
+        string("action.open_in_browser_short", fallback: "Open")
+    }
     static var searchPlaceholder: String { string("search.placeholder") }
     static var clear: String { string("action.clear") }
     static var lookingForPorts: String { string("status.looking_for_ports") }
     static var quit: String { string("action.quit") }
+    static var openPortPig: String {
+        string("action.open_portpig", fallback: "Open PortPig")
+    }
+    static var aboutPortPig: String {
+        format("action.about", fallback: "About %@", appName)
+    }
     static var refreshing: String { string("status.refreshing") }
     static var notRefreshed: String { string("status.not_refreshed") }
     static var noMatchingPorts: String { string("empty.no_matches") }
@@ -39,6 +108,12 @@ enum L10n {
     }
     static var terminateProcessTitle: String { string("confirmation.kill.title") }
     static var protectedProcessTitle: String { string("protected.title") }
+    static var scanningPorts: String {
+        string("menu.scanning_ports", fallback: "Scanning ports…")
+    }
+    static var portCountsUnavailable: String {
+        string("menu.port_counts_unavailable", fallback: "Port counts unavailable")
+    }
 
     static var allFilter: String { string("filter.all") }
     static var filters: String { string("filters.title", fallback: "Filters") }
@@ -96,8 +171,36 @@ enum L10n {
         format("status.updated", time)
     }
 
+    static func totalPorts(_ count: Int) -> String {
+        format("menu.total_ports", fallback: "Total: %lld", Int64(count))
+    }
+
+    static func developmentPorts(_ count: Int) -> String {
+        format("menu.development_ports", fallback: "Development: %lld", Int64(count))
+    }
+
+    static func appsAndHelpersPorts(_ count: Int) -> String {
+        format("menu.apps_helpers_ports", fallback: "Apps & Helpers: %lld", Int64(count))
+    }
+
+    static func systemPorts(_ count: Int) -> String {
+        format("menu.system_ports", fallback: "System: %lld", Int64(count))
+    }
+
     static func pid(_ pid: Int32) -> String {
         format("process.pid", Int64(pid))
+    }
+
+    static func uid(_ userID: UInt32) -> String {
+        format("process.uid", fallback: "UID %lld", Int64(userID))
+    }
+
+    static func showPortDetails(_ port: Int) -> String {
+        format(
+            "action.show_port_details",
+            fallback: "Show details for port %lld",
+            Int64(port)
+        )
     }
 
     static func killHelp(processName: String, pid: Int32) -> String {

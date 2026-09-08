@@ -36,14 +36,32 @@ public struct LsofPortScanner: Sendable {
             executablePath: psPath,
             arguments: ["-axo", "pid=,ppid=,uid=,comm="]
         )
+        let processListOutput = processResult?.exitCode == 0
+            ? processResult?.standardOutput ?? ""
+            : ""
+        let relevantPIDs = Self.relevantProcessIDs(
+            for: entries,
+            processListOutput: processListOutput
+        )
+        let commandResult = relevantPIDs.isEmpty ? nil : try? await Shell.run(
+            executablePath: psPath,
+            arguments: [
+                "-p", relevantPIDs.map(String.init).joined(separator: ","),
+                "-o", "pid=,command="
+            ]
+        )
+        let commandListOutput = commandResult?.exitCode == 0
+            ? commandResult?.standardOutput ?? ""
+            : ""
 
-        guard let processResult, processResult.exitCode == 0 else {
+        guard !processListOutput.isEmpty || !commandListOutput.isEmpty else {
             return entries
         }
 
         return Self.applyingProcessMetadata(
             to: entries,
-            processListOutput: processResult.standardOutput
+            processListOutput: processListOutput,
+            commandListOutput: commandListOutput
         )
     }
 
@@ -120,14 +138,17 @@ public struct LsofPortScanner: Sendable {
 
     static func applyingProcessMetadata(
         to entries: [PortEntry],
-        processListOutput: String
+        processListOutput: String,
+        commandListOutput: String = ""
     ) -> [PortEntry] {
         let processTable = parseProcessList(processListOutput)
+        let commandHints = parseWebDevelopmentToolHints(commandListOutput)
 
         return entries.map { entry in
             let record = processTable[entry.pid]
             let parentPID = entry.parentPID ?? record?.parentPID
             var ancestorPaths: [String] = []
+            var webDevelopmentTool = commandHints[entry.pid]
             var visited = Set<Int32>()
             var nextPID = parentPID
 
@@ -138,6 +159,9 @@ public struct LsofPortScanner: Sendable {
 
                 if !ancestor.executablePath.isEmpty {
                     ancestorPaths.append(ancestor.executablePath)
+                }
+                if webDevelopmentTool == nil {
+                    webDevelopmentTool = commandHints[pid]
                 }
                 nextPID = ancestor.parentPID
             }
@@ -151,7 +175,8 @@ public struct LsofPortScanner: Sendable {
                 parentPID: parentPID,
                 userID: entry.userID ?? record?.userID,
                 executablePath: record?.executablePath,
-                ancestorExecutablePaths: ancestorPaths
+                ancestorExecutablePaths: ancestorPaths,
+                webDevelopmentTool: webDevelopmentTool
             )
         }
     }
@@ -182,6 +207,67 @@ public struct LsofPortScanner: Sendable {
         }
 
         return records
+    }
+
+    private static func relevantProcessIDs(
+        for entries: [PortEntry],
+        processListOutput: String
+    ) -> [Int32] {
+        let processTable = parseProcessList(processListOutput)
+        var processIDs = Set(entries.map(\.pid))
+
+        for entry in entries {
+            var visited = Set<Int32>()
+            var nextPID = entry.parentPID ?? processTable[entry.pid]?.parentPID
+
+            while let pid = nextPID, pid > 1, visited.insert(pid).inserted, visited.count <= 8 {
+                processIDs.insert(pid)
+                nextPID = processTable[pid]?.parentPID
+            }
+        }
+
+        return processIDs.sorted()
+    }
+
+    private static func parseWebDevelopmentToolHints(
+        _ output: String
+    ) -> [Int32: WebDevelopmentTool] {
+        var hints: [Int32: WebDevelopmentTool] = [:]
+
+        for line in output.split(whereSeparator: \.isNewline) {
+            let fields = line.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+            guard fields.count == 2,
+                  let pid = Int32(fields[0]),
+                  let hint = webDevelopmentTool(in: String(fields[1])) else {
+                continue
+            }
+
+            hints[pid] = hint
+        }
+
+        return hints
+    }
+
+    static func webDevelopmentTool(in commandLine: String) -> WebDevelopmentTool? {
+        let command = commandLine.lowercased().replacingOccurrences(of: "\\", with: "/")
+
+        let signatures: [(WebDevelopmentTool, [String])] = [
+            (.angular, ["/node_modules/@angular/cli/", "/node_modules/.bin/ng "]),
+            (.astro, ["/node_modules/astro/", "/node_modules/.bin/astro "]),
+            (.gradio, ["/site-packages/gradio/", "/bin/gradio "]),
+            (.nextJS, ["/node_modules/next/dist/bin/next", "/node_modules/.bin/next "]),
+            (.nuxt, ["/node_modules/nuxt/bin/", "/node_modules/.bin/nuxt "]),
+            (.parcel, ["/node_modules/parcel/lib/bin", "/node_modules/.bin/parcel "]),
+            (.storybook, [
+                "/node_modules/@storybook/", "/node_modules/storybook/bin/",
+                "/node_modules/.bin/storybook "
+            ]),
+            (.vite, ["/node_modules/vite/bin/vite", "/node_modules/.bin/vite "])
+        ]
+
+        return signatures.first { _, patterns in
+            patterns.contains(where: command.contains)
+        }?.0
     }
 
     private static func extractPort(from endpoint: String) -> Int? {

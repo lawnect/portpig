@@ -32,13 +32,14 @@ public enum DevelopmentPortFilter {
         3306: Service(category: .database, name: "MySQL", iconName: "mysql"),
         3333: Service(category: .web, name: "Web server"),
         4000: Service(category: .web, name: "Web server"),
-        4200: Service(category: .web, name: "Angular", iconName: "angular"),
+        4200: Service(category: .web, name: "Web server"),
+        4321: Service(category: .web, name: "Web server"),
         4369: Service(category: .development, name: "Erlang Port Mapper", iconName: "erlang"),
         5000: Service(category: .web, name: "Web server"),
         5001: Service(category: .web, name: "Web server"),
         5037: Service(category: .mobile, name: "Android Debug Bridge", iconName: "android"),
-        5173: Service(category: .web, name: "Vite", iconName: "vite"),
-        5174: Service(category: .web, name: "Vite", iconName: "vite"),
+        5173: Service(category: .web, name: "Web server"),
+        5174: Service(category: .web, name: "Web server"),
         5432: Service(category: .database, name: "PostgreSQL", iconName: "postgresql"),
         5601: Service(category: .development, name: "Kibana", iconName: "kibana"),
         5672: Service(category: .messaging, name: "RabbitMQ", iconName: "rabbitmq"),
@@ -98,8 +99,7 @@ public enum DevelopmentPortFilter {
             )
         }
 
-        let processService = service(forProcessName: processName)
-            ?? serviceFromExecutionContext(entry)
+        let namedProcessService = service(forProcessName: processName)
 
         if isLikelyPhoenix(entry, processName: processName) {
             return PortClassification(
@@ -112,7 +112,7 @@ public enum DevelopmentPortFilter {
 
         // A process name is stronger evidence than a conventional port. For example,
         // PostgreSQL listening on 8080 is still a database, not a web server.
-        if let service = processService, service.category != .development {
+        if let service = namedProcessService, service.category != .development {
             return PortClassification(
                 category: service.category,
                 displayName: service.name,
@@ -121,20 +121,21 @@ public enum DevelopmentPortFilter {
             )
         }
 
+        if let webDevelopmentTool = entry.webDevelopmentTool {
+            let service = service(for: webDevelopmentTool)
+            return PortClassification(
+                category: service.category,
+                displayName: service.name,
+                reason: "Recognized development command: \(service.name)",
+                iconName: service.iconName
+            )
+        }
+
+        let processService = namedProcessService ?? serviceFromExecutionContext(entry)
+
         if let processService,
            processService.category == .development,
            isCandidateWebPort(entry.port) {
-            if let portService = knownServices[entry.port],
-               portService.iconName != nil,
-               isJavaScriptRuntime(processName) {
-                return PortClassification(
-                    category: .web,
-                    displayName: portService.name,
-                    reason: "Recognized runtime on known web port: \(entry.port)",
-                    iconName: portService.iconName
-                )
-            }
-
             return PortClassification(
                 category: .web,
                 displayName: webServerName(for: processService),
@@ -243,13 +244,6 @@ public enum DevelopmentPortFilter {
 
         let ancestorNames = entry.ancestorExecutablePaths.map(normalizedProcessName)
         return ancestorNames.contains(where: { ["elixir", "iex", "mix"].contains($0) })
-    }
-
-    private static func isJavaScriptRuntime(_ processName: String) -> Bool {
-        [
-            "node", "nodejs", "npm", "npx", "pnpm", "yarn",
-            "bun", "bunx", "deno"
-        ].contains(processName)
     }
 
     private static func serviceFromExecutionContext(_ entry: PortEntry) -> Service? {
@@ -483,10 +477,22 @@ public enum DevelopmentPortFilter {
             return Service(category: .web, name: "Apache", iconName: "apache")
         case "caddy":
             return Service(category: .web, name: "Caddy", iconName: "caddy")
+        case "astro":
+            return Service(category: .web, name: "Astro", iconName: "astro")
+        case "gradio":
+            return Service(category: .web, name: "Gradio", iconName: "python")
         case "vite":
             return Service(category: .web, name: "Vite", iconName: "vite")
         case "next", "next-server":
             return Service(category: .web, name: "Next.js", iconName: "nextjs")
+        case "nuxt":
+            return Service(category: .web, name: "Nuxt", iconName: "node")
+        case "parcel":
+            return Service(category: .web, name: "Parcel", iconName: "node")
+        case "storybook":
+            return Service(category: .web, name: "Storybook", iconName: "node")
+        case "hugo":
+            return Service(category: .web, name: "Hugo")
         case "gunicorn":
             return Service(category: .web, name: "Gunicorn", iconName: "gunicorn")
         case "uvicorn":
@@ -582,6 +588,27 @@ public enum DevelopmentPortFilter {
             }
 
             return nil
+        }
+    }
+
+    private static func service(for tool: WebDevelopmentTool) -> Service {
+        switch tool {
+        case .angular:
+            Service(category: .web, name: "Angular", iconName: "angular")
+        case .astro:
+            Service(category: .web, name: "Astro", iconName: "astro")
+        case .gradio:
+            Service(category: .web, name: "Gradio", iconName: "python")
+        case .nextJS:
+            Service(category: .web, name: "Next.js", iconName: "nextjs")
+        case .nuxt:
+            Service(category: .web, name: "Nuxt", iconName: "node")
+        case .parcel:
+            Service(category: .web, name: "Parcel", iconName: "node")
+        case .storybook:
+            Service(category: .web, name: "Storybook", iconName: "node")
+        case .vite:
+            Service(category: .web, name: "Vite", iconName: "vite")
         }
     }
 }

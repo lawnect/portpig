@@ -42,6 +42,45 @@ final class DevelopmentPortFilterTests: XCTestCase {
         )
     }
 
+    func testAstroDefaultPortAloneDoesNotIdentifyAstro() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "node", port: 4321)
+        )
+
+        XCTAssertTrue(DevelopmentPortFilter.includesWebServer(entry(processName: "node", port: 4321)))
+        XCTAssertEqual(classification.displayName, "Node.js web server")
+        XCTAssertEqual(classification.iconName, "node")
+    }
+
+    func testRecognizesAstroCommandOnCustomPort() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "node", port: 24_321, webDevelopmentTool: .astro)
+        )
+
+        XCTAssertEqual(classification.category, .web)
+        XCTAssertEqual(classification.displayName, "Astro")
+        XCTAssertEqual(classification.iconName, "astro")
+    }
+
+    func testProcessRoleWinsOverAstroDefaultPort() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "postgres", port: 4321, webDevelopmentTool: .astro)
+        )
+
+        XCTAssertEqual(classification.category, .database)
+        XCTAssertEqual(classification.displayName, "PostgreSQL")
+    }
+
+    func testRecognizesViteCommandOnCustomPort() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "node", port: 24_322, webDevelopmentTool: .vite)
+        )
+
+        XCTAssertEqual(classification.category, .web)
+        XCTAssertEqual(classification.displayName, "Vite")
+        XCTAssertEqual(classification.iconName, "vite")
+    }
+
     func testWebFilterExcludesAndroidDebugBridge() {
         XCTAssertFalse(
             DevelopmentPortFilter.includesWebServer(
@@ -105,8 +144,8 @@ final class DevelopmentPortFilterTests: XCTestCase {
         XCTAssertTrue(DevelopmentPortFilter.includes(highNodePort))
         XCTAssertFalse(DevelopmentPortFilter.includesWebServer(highNodePort))
         XCTAssertTrue(DevelopmentPortFilter.includesWebServer(vitePort))
-        XCTAssertEqual(DevelopmentPortFilter.classify(vitePort).displayName, "Vite")
-        XCTAssertEqual(DevelopmentPortFilter.classify(vitePort).iconName, "vite")
+        XCTAssertEqual(DevelopmentPortFilter.classify(vitePort).displayName, "Node.js web server")
+        XCTAssertEqual(DevelopmentPortFilter.classify(vitePort).iconName, "node")
     }
 
     func testProcessRoleWinsWhenPortUsuallyMeansWeb() {
@@ -127,7 +166,7 @@ final class DevelopmentPortFilterTests: XCTestCase {
         )
         XCTAssertEqual(
             DevelopmentPortFilter.classify(entry(processName: "custom-api", port: 5173)).displayName,
-            "Vite"
+            "Web server"
         )
         XCTAssertEqual(
             DevelopmentPortFilter.classify(entry(processName: "custom-db", port: 5432)).displayName,
@@ -478,7 +517,8 @@ final class DevelopmentPortFilterTests: XCTestCase {
         processName: String,
         port: Int,
         executablePath: String? = nil,
-        ancestorExecutablePaths: [String] = []
+        ancestorExecutablePaths: [String] = [],
+        webDevelopmentTool: WebDevelopmentTool? = nil
     ) -> PortEntry {
         PortEntry(
             processName: processName,
@@ -487,7 +527,8 @@ final class DevelopmentPortFilterTests: XCTestCase {
             protocolName: "TCP",
             endpoint: "127.0.0.1:\(port)",
             executablePath: executablePath,
-            ancestorExecutablePaths: ancestorExecutablePaths
+            ancestorExecutablePaths: ancestorExecutablePaths,
+            webDevelopmentTool: webDevelopmentTool
         )
     }
 }

@@ -101,6 +101,71 @@ final class LsofPortScannerTests: XCTestCase {
         )
     }
 
+    func testExtractsSanitizedWebToolHintFromCommandLine() {
+        let entry = entry(processName: "node", pid: 700, port: 24_321, parentPID: 650)
+        let processList = """
+          700   650   501 /opt/homebrew/bin/node
+          650     1   501 /bin/zsh
+        """
+        let commandList = """
+          700 /opt/homebrew/bin/node /projects/site/node_modules/astro/bin/astro.mjs dev --port 24321
+          650 /bin/zsh
+        """
+
+        let result = LsofPortScanner.applyingProcessMetadata(
+            to: [entry],
+            processListOutput: processList,
+            commandListOutput: commandList
+        ).first
+
+        XCTAssertEqual(result?.webDevelopmentTool, .astro)
+    }
+
+    func testUsesParentCommandHintWhenListenerCommandIsGeneric() {
+        let entry = entry(processName: "node", pid: 700, port: 16_006, parentPID: 650)
+        let processList = """
+          700   650   501 /opt/homebrew/bin/node
+          650     1   501 /opt/homebrew/bin/node
+        """
+        let commandList = """
+          700 /opt/homebrew/bin/node server.js
+          650 /opt/homebrew/bin/node /projects/ui/node_modules/@storybook/core/bin/index.cjs dev
+        """
+
+        let result = LsofPortScanner.applyingProcessMetadata(
+            to: [entry],
+            processListOutput: processList,
+            commandListOutput: commandList
+        ).first
+
+        XCTAssertEqual(result?.webDevelopmentTool, .storybook)
+    }
+
+    func testDoesNotInferToolFromProjectDirectoryName() {
+        XCTAssertNil(
+            LsofPortScanner.webDevelopmentTool(
+                in: "/opt/homebrew/bin/node /projects/my-astro-site/server.js"
+            )
+        )
+    }
+
+    func testRecognizesSupportedWebToolCommandSignatures() {
+        let cases: [(String, WebDevelopmentTool)] = [
+            ("node /app/node_modules/@angular/cli/bin/ng.js serve", .angular),
+            ("node /app/node_modules/astro/bin/astro.mjs dev", .astro),
+            ("python /venv/lib/python3.13/site-packages/gradio/cli.py app.py", .gradio),
+            ("node /app/node_modules/next/dist/bin/next dev", .nextJS),
+            ("node /app/node_modules/nuxt/bin/nuxt.mjs dev", .nuxt),
+            ("node /app/node_modules/parcel/lib/bin.js index.html", .parcel),
+            ("node /app/node_modules/@storybook/core/bin/index.cjs dev", .storybook),
+            ("node /app/node_modules/vite/bin/vite.js", .vite)
+        ]
+
+        for (command, expectedTool) in cases {
+            XCTAssertEqual(LsofPortScanner.webDevelopmentTool(in: command), expectedTool)
+        }
+    }
+
     func testBrowserURLUsesLocalhostForWildcardAddresses() {
         XCTAssertEqual(
             browserURL(endpoint: "*:3000", port: 3000)?.absoluteString,
@@ -146,5 +211,22 @@ final class LsofPortScannerTests: XCTestCase {
             protocolName: "TCP",
             endpoint: endpoint
         ).browserURL
+    }
+
+    private func entry(
+        processName: String,
+        pid: Int32,
+        port: Int,
+        parentPID: Int32? = nil
+    ) -> PortEntry {
+        PortEntry(
+            processName: processName,
+            pid: pid,
+            port: port,
+            protocolName: "TCP",
+            endpoint: "127.0.0.1:\(port)",
+            parentPID: parentPID,
+            userID: 501
+        )
     }
 }

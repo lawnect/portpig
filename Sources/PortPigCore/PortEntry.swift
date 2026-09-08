@@ -1,5 +1,16 @@
 import Foundation
 
+public enum WebDevelopmentTool: String, Hashable, Sendable {
+    case angular
+    case astro
+    case gradio
+    case nextJS
+    case nuxt
+    case parcel
+    case storybook
+    case vite
+}
+
 public struct PortEntry: Identifiable, Hashable, Sendable {
     public let processName: String
     public let pid: Int32
@@ -10,6 +21,7 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
     public let userID: UInt32?
     public let executablePath: String?
     public let ancestorExecutablePaths: [String]
+    public let webDevelopmentTool: WebDevelopmentTool?
 
     public var id: String {
         "\(pid)-\(protocolName)-\(port)"
@@ -41,7 +53,8 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
         parentPID: Int32? = nil,
         userID: UInt32? = nil,
         executablePath: String? = nil,
-        ancestorExecutablePaths: [String] = []
+        ancestorExecutablePaths: [String] = [],
+        webDevelopmentTool: WebDevelopmentTool? = nil
     ) {
         self.processName = processName
         self.pid = pid
@@ -52,6 +65,7 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
         self.userID = userID
         self.executablePath = executablePath
         self.ancestorExecutablePaths = ancestorExecutablePaths
+        self.webDevelopmentTool = webDevelopmentTool
     }
 
     private var browserHost: String {

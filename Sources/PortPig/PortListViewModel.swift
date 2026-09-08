@@ -2,6 +2,13 @@ import Darwin
 import Foundation
 import PortPigCore
 
+struct PortSummary: Equatable {
+    let total: Int
+    let development: Int
+    let appsAndHelpers: Int
+    let system: Int
+}
+
 @MainActor
 final class PortListViewModel: ObservableObject {
     @Published private var allPorts: [PortEntry] = []
@@ -99,6 +106,19 @@ final class PortListViewModel: ObservableObject {
 
     var isAllFilterSelected: Bool {
         selectedFilterID == nil
+    }
+
+    var portSummary: PortSummary? {
+        guard lastUpdated != nil else {
+            return nil
+        }
+
+        return PortSummary(
+            total: allPorts.count,
+            development: allPorts.count(where: { $0.classification.isDevelopmentRelated }),
+            appsAndHelpers: allPorts.count(where: { $0.classification.category == .other }),
+            system: allPorts.count(where: { $0.classification.category == .system })
+        )
     }
 
     var footerStatus: String {
@@ -318,6 +338,23 @@ final class PortListViewModel: ObservableObject {
             currentUserID: currentUserID,
             currentProcessID: currentProcessID
         )
+    }
+
+    func ownerDescription(for entry: PortEntry) -> String {
+        guard let userID = entry.userID else {
+            return L10n.unknownValue
+        }
+
+        let owner: String
+        if userID == currentUserID {
+            owner = L10n.currentUser
+        } else if userID == 0 {
+            owner = L10n.administrator
+        } else {
+            owner = L10n.otherUser
+        }
+
+        return "\(owner) · \(L10n.uid(userID))"
     }
 
     func kill(_ entry: PortEntry) async {

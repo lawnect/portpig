@@ -9,45 +9,56 @@ private enum FilterScreen {
 
 struct PortPopoverView: View {
     @ObservedObject var viewModel: PortListViewModel
-    @StateObject private var launchAtLogin = LaunchAtLoginController()
+    @ObservedObject var launchAtLogin: LaunchAtLoginController
     @State private var filterScreen: FilterScreen?
+    @State private var selectedEntry: PortEntry?
+    let onShowAbout: () -> Void
     let onQuit: () -> Void
     let onSettingsMenuClosed: () -> Void
 
     var body: some View {
         Group {
-            switch filterScreen {
-            case .manager:
-                FilterManagerView(
-                    filters: viewModel.savedFilters,
-                    selectedFilterID: viewModel.selectedFilterID,
-                    onBack: { filterScreen = nil },
-                    onNew: {
-                        filterScreen = .editor(
-                            SavedPortFilter(name: L10n.newFilter, isPinned: true),
-                            isNew: true
-                        )
-                    },
-                    onSelect: { id in
-                        viewModel.selectFilter(id: id)
-                        filterScreen = nil
-                    },
-                    onEdit: { filter in filterScreen = .editor(filter, isNew: false) },
-                    onSetPinned: viewModel.setFilterPinned,
-                    onDelete: viewModel.deleteFilter
+            if let selectedEntry {
+                PortDetailsView(
+                    entry: selectedEntry,
+                    ownerDescription: viewModel.ownerDescription(for: selectedEntry),
+                    protectionReason: viewModel.protectionReason(for: selectedEntry),
+                    onBack: { self.selectedEntry = nil }
                 )
-            case let .editor(filter, isNew):
-                FilterEditorView(
-                    initialFilter: filter,
-                    isNew: isNew,
-                    onCancel: { filterScreen = .manager },
-                    onSave: { filter in
-                        viewModel.saveFilter(filter)
-                        filterScreen = nil
-                    }
-                )
-            case nil:
-                portList
+            } else {
+                switch filterScreen {
+                case .manager:
+                    FilterManagerView(
+                        filters: viewModel.savedFilters,
+                        selectedFilterID: viewModel.selectedFilterID,
+                        onBack: { filterScreen = nil },
+                        onNew: {
+                            filterScreen = .editor(
+                                SavedPortFilter(name: L10n.newFilter, isPinned: true),
+                                isNew: true
+                            )
+                        },
+                        onSelect: { id in
+                            viewModel.selectFilter(id: id)
+                            filterScreen = nil
+                        },
+                        onEdit: { filter in filterScreen = .editor(filter, isNew: false) },
+                        onSetPinned: viewModel.setFilterPinned,
+                        onDelete: viewModel.deleteFilter
+                    )
+                case let .editor(filter, isNew):
+                    FilterEditorView(
+                        initialFilter: filter,
+                        isNew: isNew,
+                        onCancel: { filterScreen = .manager },
+                        onSave: { filter in
+                            viewModel.saveFilter(filter)
+                            filterScreen = nil
+                        }
+                    )
+                case nil:
+                    portList
+                }
             }
         }
         .frame(width: 420, height: 488)
@@ -90,6 +101,7 @@ struct PortPopoverView: View {
                     onToggleLaunchAtLogin: { isEnabled in
                         launchAtLogin.setEnabled(isEnabled)
                     },
+                    onShowAbout: onShowAbout,
                     onQuit: onQuit,
                     onMenuClosed: onSettingsMenuClosed
                 )
@@ -194,7 +206,8 @@ struct PortPopoverView: View {
                         Task {
                             await viewModel.kill(entry)
                         }
-                    }
+                    },
+                    onShowDetails: { selectedEntry = entry }
                 )
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
@@ -428,8 +441,6 @@ private struct FilterManagerView: View {
 
 private struct FilterEditorView: View {
     @State private var filter: SavedPortFilter
-    @State private var minimumPortText: String
-    @State private var maximumPortText: String
     let isNew: Bool
     let onCancel: () -> Void
     let onSave: (SavedPortFilter) -> Void
@@ -441,8 +452,6 @@ private struct FilterEditorView: View {
         onSave: @escaping (SavedPortFilter) -> Void
     ) {
         _filter = State(initialValue: initialFilter)
-        _minimumPortText = State(initialValue: initialFilter.minimumPort.map(String.init) ?? "")
-        _maximumPortText = State(initialValue: initialFilter.maximumPort.map(String.init) ?? "")
         self.isNew = isNew
         self.onCancel = onCancel
         self.onSave = onSave
@@ -517,12 +526,17 @@ private struct FilterEditorView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {
-                            TextField(L10n.filterMinimumPort, text: $minimumPortText)
+                            PortNumberField(
+                                value: $filter.minimumPort,
+                                placeholder: L10n.filterMinimumPort
+                            )
                             Text("–")
                                 .foregroundStyle(.secondary)
-                            TextField(L10n.filterMaximumPort, text: $maximumPortText)
+                            PortNumberField(
+                                value: $filter.maximumPort,
+                                placeholder: L10n.filterMaximumPort
+                            )
                         }
-                        .textFieldStyle(.roundedBorder)
                     }
 
                     Toggle(L10n.filterPinned, isOn: $filter.isPinned)
@@ -544,8 +558,6 @@ private struct FilterEditorView: View {
             Spacer()
 
             Button(L10n.save) {
-                filter.minimumPort = Int(minimumPortText)
-                filter.maximumPort = Int(maximumPortText)
                 onSave(filter)
             }
             .buttonStyle(.borderedProminent)
@@ -558,22 +570,22 @@ private struct FilterEditorView: View {
 
     private var isValid: Bool {
         !filter.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && isValidPortText(minimumPortText)
-            && isValidPortText(maximumPortText)
+            && isValidPort(filter.minimumPort)
+            && isValidPort(filter.maximumPort)
             && portRangeIsOrdered
     }
 
     private var portRangeIsOrdered: Bool {
-        guard let minimum = Int(minimumPortText),
-              let maximum = Int(maximumPortText) else {
+        guard let minimum = filter.minimumPort,
+              let maximum = filter.maximumPort else {
             return true
         }
 
         return minimum <= maximum
     }
 
-    private func isValidPortText(_ text: String) -> Bool {
-        text.isEmpty || Int(text).map { (1...65_535).contains($0) } == true
+    private func isValidPort(_ port: Int?) -> Bool {
+        port.map { (1...65_535).contains($0) } ?? true
     }
 
     private func categoryBinding(_ category: PortCategory) -> Binding<Bool> {
@@ -609,9 +621,47 @@ private struct FilterEditorView: View {
     }
 }
 
+private struct PortNumberField: View {
+    @Binding var value: Int?
+    let placeholder: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField(placeholder, text: textBinding)
+                .textFieldStyle(.roundedBorder)
+
+            Stepper(value: stepperBinding, in: 0...65_535) {
+                Text(placeholder)
+            }
+            .labelsHidden()
+            .controlSize(.small)
+        }
+    }
+
+    private var textBinding: Binding<String> {
+        Binding(
+            get: { value.map(String.init) ?? "" },
+            set: { text in
+                let digits = text.filter { character in
+                    character >= "0" && character <= "9"
+                }
+                value = digits.isEmpty ? nil : Int(digits)
+            }
+        )
+    }
+
+    private var stepperBinding: Binding<Int> {
+        Binding(
+            get: { min(max(value ?? 0, 0), 65_535) },
+            set: { value = $0 == 0 ? nil : $0 }
+        )
+    }
+}
+
 private struct SettingsMenuButton: NSViewRepresentable {
     let isLaunchAtLoginEnabled: Bool
     let onToggleLaunchAtLogin: (Bool) -> Void
+    let onShowAbout: () -> Void
     let onQuit: () -> Void
     let onMenuClosed: () -> Void
 
@@ -656,6 +706,15 @@ private struct SettingsMenuButton: NSViewRepresentable {
             menu.minimumWidth = 230
             menu.delegate = self
 
+            let aboutItem = NSMenuItem(
+                title: L10n.aboutPortPig,
+                action: #selector(showAbout(_:)),
+                keyEquivalent: ""
+            )
+            aboutItem.target = self
+            menu.addItem(aboutItem)
+            menu.addItem(.separator())
+
             let launchAtLoginItem = NSMenuItem(
                 title: L10n.launchAtLogin,
                 action: #selector(toggleLaunchAtLogin(_:)),
@@ -690,6 +749,10 @@ private struct SettingsMenuButton: NSViewRepresentable {
 
         @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
             parent.onToggleLaunchAtLogin(!parent.isLaunchAtLoginEnabled)
+        }
+
+        @objc private func showAbout(_ sender: NSMenuItem) {
+            parent.onShowAbout()
         }
 
         @objc private func quit(_ sender: NSMenuItem) {
@@ -752,14 +815,285 @@ private struct PortSearchField: NSViewRepresentable {
     }
 }
 
+private struct PortDetailsView: View {
+    let entry: PortEntry
+    let ownerDescription: String
+    let protectionReason: ProcessProtectionReason?
+    let onBack: () -> Void
+    @State private var addressCopyFeedbackID: UUID?
+
+    private var classification: PortClassification {
+        entry.classification
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            navigationHeader
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    summary
+                    Divider()
+                    detailSection(L10n.connectionSection) {
+                        detailRow(L10n.addressLabel, value: entry.endpoint, monospaced: true)
+                        if let browserURL {
+                            detailRow(
+                                L10n.browserURLLabel,
+                                value: browserURL.absoluteString,
+                                monospaced: true
+                            )
+                        }
+                        detailRow(L10n.filterExposure, value: exposureDescription)
+                    }
+                    Divider()
+                    detailSection(L10n.processSection) {
+                        detailRow(L10n.pidLabel, value: String(entry.pid), monospaced: true)
+                        detailRow(L10n.filterOwnership, value: ownerDescription)
+                        detailRow(L10n.filterTermination, value: terminationDescription)
+                        if let protectionReason {
+                            Text(L10n.protectionReason(protectionReason))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.leading, 116)
+                        }
+                        detailRow(
+                            L10n.executableLabel,
+                            value: entry.executablePath ?? L10n.unknownValue,
+                            monospaced: entry.executablePath != nil
+                        )
+                        detailRow(
+                            L10n.parentPIDLabel,
+                            value: entry.parentPID.map(String.init) ?? L10n.unknownValue,
+                            monospaced: entry.parentPID != nil
+                        )
+                        if !entry.ancestorExecutablePaths.isEmpty {
+                            DisclosureGroup(L10n.launchChainLabel) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(
+                                        Array(entry.ancestorExecutablePaths.enumerated()),
+                                        id: \.offset
+                                    ) { _, path in
+                                        Text(path)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .textSelection(.enabled)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                                .padding(.top, 6)
+                                .padding(.leading, 12)
+                            }
+                            .font(.caption)
+                            .padding(.top, 4)
+                        }
+                    }
+                    Divider()
+                    detailSection(L10n.classificationSection) {
+                        detailRow(
+                            L10n.serviceLabel,
+                            value: L10n.classificationName(classification.displayName)
+                        )
+                        detailRow(
+                            L10n.detectedFromLabel,
+                            value: L10n.classificationReason(classification.reason)
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            Divider()
+            actions
+        }
+    }
+
+    private var navigationHeader: some View {
+        ZStack {
+            Text(L10n.portDetailsTitle)
+                .font(.headline)
+
+            HStack {
+                Button(action: onBack) {
+                    Label(L10n.back, systemImage: "chevron.left")
+                }
+                .buttonStyle(.borderless)
+
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var summary: some View {
+        HStack(spacing: 12) {
+            ServiceIconView(classification: classification, size: 32)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(String(entry.port))
+                        .font(.system(.title2, design: .monospaced).weight(.semibold))
+                    Text(entry.protocolName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(
+                    "\(L10n.localizedProcessName(entry.processName)) · "
+                        + L10n.classificationName(classification.displayName)
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(exposureDescription)
+                .font(.caption2)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(.quaternary, in: Capsule())
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button(action: copyAddress) {
+                Label(
+                    addressCopyFeedbackID == nil ? L10n.copyAddress : L10n.addressCopied,
+                    systemImage: addressCopyFeedbackID == nil
+                        ? "doc.on.doc"
+                        : "checkmark.circle.fill"
+                )
+            }
+            .buttonStyle(.bordered)
+
+            Button(action: revealExecutable) {
+                Label(L10n.revealExecutable, systemImage: "folder")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!canRevealExecutable)
+
+            Spacer(minLength: 0)
+
+            if let browserURL {
+                Button {
+                    NSWorkspace.shared.open(browserURL)
+                } label: {
+                    Label(L10n.openInBrowser, systemImage: "safari")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func detailSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+            content()
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func detailRow(_ label: String, value: String, monospaced: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .foregroundStyle(.secondary)
+                .frame(width: 104, alignment: .leading)
+
+            Text(value)
+                .font(monospaced ? .system(.caption, design: .monospaced) : .caption)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.caption)
+    }
+
+    private var browserURL: URL? {
+        classification.isWebServer ? entry.browserURL : nil
+    }
+
+    private var exposureDescription: String {
+        L10n.exposureName(isLocalOnly ? .localOnly : .networkVisible)
+    }
+
+    private var isLocalOnly: Bool {
+        let endpoint = entry.endpoint.lowercased()
+        return endpoint.hasPrefix("127.0.0.1:")
+            || endpoint.hasPrefix("[::1]:")
+            || endpoint.hasPrefix("localhost:")
+    }
+
+    private var terminationDescription: String {
+        protectionReason == nil ? L10n.terminationAllowed : L10n.terminationProtected
+    }
+
+    private var canRevealExecutable: Bool {
+        guard let executablePath = entry.executablePath else {
+            return false
+        }
+
+        return FileManager.default.fileExists(atPath: executablePath)
+    }
+
+    private var addressToCopy: String {
+        browserURL?.absoluteString ?? entry.endpoint
+    }
+
+    private func copyAddress() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(addressToCopy, forType: .string)
+
+        let feedbackID = UUID()
+        withAnimation(.easeInOut(duration: 0.15)) {
+            addressCopyFeedbackID = feedbackID
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard addressCopyFeedbackID == feedbackID else {
+                return
+            }
+
+            withAnimation(.easeInOut(duration: 0.15)) {
+                addressCopyFeedbackID = nil
+            }
+        }
+    }
+
+    private func revealExecutable() {
+        guard let executablePath = entry.executablePath else {
+            return
+        }
+
+        NSWorkspace.shared.activateFileViewerSelecting([
+            URL(fileURLWithPath: executablePath)
+        ])
+    }
+}
+
 private struct PortRowView: View {
     let entry: PortEntry
     let isKilling: Bool
     let protectionReason: ProcessProtectionReason?
     let onKill: () -> Void
+    let onShowDetails: () -> Void
     @State private var isShowingKillConfirmation = false
     @State private var isShowingProtectionExplanation = false
-    @State private var copyFeedbackID: UUID?
+    @State private var addressCopyFeedbackID: UUID?
 
     private var classification: PortClassification {
         entry.classification
@@ -816,11 +1150,24 @@ private struct PortRowView: View {
             }
 
             Button(action: copyAddress) {
-                Image(systemName: copyFeedbackID == nil ? "doc.on.doc" : "checkmark.circle.fill")
-                    .foregroundStyle(copyFeedbackID == nil ? Color.secondary : Color.green)
+                Image(
+                    systemName: addressCopyFeedbackID == nil
+                        ? "doc.on.doc"
+                        : "checkmark.circle.fill"
+                )
+                    .foregroundStyle(addressCopyFeedbackID == nil ? Color.secondary : Color.green)
             }
             .buttonStyle(.borderless)
-            .help(copyFeedbackID == nil ? L10n.copyAddressHelp(addressToCopy) : L10n.addressCopied)
+            .help(
+                addressCopyFeedbackID == nil
+                    ? L10n.copyAddressHelp(addressToCopy)
+                    : L10n.addressCopied
+            )
+            .accessibilityLabel(
+                addressCopyFeedbackID == nil
+                    ? L10n.copyAddressHelp(addressToCopy)
+                    : L10n.addressCopied
+            )
 
             if canOpenInBrowser {
                 Button(action: openInBrowser) {
@@ -853,6 +1200,13 @@ private struct PortRowView: View {
                     ? L10n.killHelp(processName: entry.processName, pid: entry.pid)
                     : L10n.protectedProcessHelp(processName: entry.processName, pid: entry.pid)
             )
+
+            Button(action: onShowDetails) {
+                Image(systemName: "info.circle")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.showPortDetails(entry.port))
+            .accessibilityLabel(L10n.showPortDetails(entry.port))
         }
         .padding(.vertical, 4)
         .alert(
@@ -914,17 +1268,17 @@ private struct PortRowView: View {
 
         let feedbackID = UUID()
         withAnimation(.easeInOut(duration: 0.15)) {
-            copyFeedbackID = feedbackID
+            addressCopyFeedbackID = feedbackID
         }
 
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
-            guard copyFeedbackID == feedbackID else {
+            guard addressCopyFeedbackID == feedbackID else {
                 return
             }
 
             withAnimation(.easeInOut(duration: 0.15)) {
-                copyFeedbackID = nil
+                addressCopyFeedbackID = nil
             }
         }
     }
@@ -940,6 +1294,7 @@ private struct PortRowView: View {
 
 private struct ServiceIconView: View {
     let classification: PortClassification
+    var size: CGFloat = 22
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -962,7 +1317,7 @@ private struct ServiceIconView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: 22, height: 22)
+        .frame(width: size, height: size)
         .accessibilityHidden(true)
         .help(L10n.classificationReason(classification.reason))
     }
@@ -1000,7 +1355,7 @@ private struct ServiceIconView: View {
         case .mobile: "iphone"
         case .development: "hammer"
         case .system: "gearshape"
-        case .other: "questionmark.circle"
+        case .other: "cable.connector"
         }
     }
 

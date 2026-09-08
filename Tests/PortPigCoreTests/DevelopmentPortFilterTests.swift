@@ -81,6 +81,39 @@ final class DevelopmentPortFilterTests: XCTestCase {
         XCTAssertEqual(classification.iconName, "vite")
     }
 
+    func testProjectFrameworkIsPrimaryAndDevelopmentToolIsSecondary() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(
+                processName: "node",
+                port: 24_323,
+                webDevelopmentTool: .vite,
+                webProjectFramework: .svelteKit
+            )
+        )
+
+        XCTAssertEqual(classification.category, .web)
+        XCTAssertEqual(classification.displayName, "SvelteKit")
+        XCTAssertEqual(classification.secondaryDisplayName, "Vite")
+    }
+
+    func testBunRuntimeIsShownAlongsideReactProject() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "bun", port: 24_324, webProjectFramework: .react)
+        )
+
+        XCTAssertEqual(classification.displayName, "React")
+        XCTAssertEqual(classification.secondaryDisplayName, "Bun")
+    }
+
+    func testInfrastructureProcessWinsOverProjectManifest() {
+        let classification = DevelopmentPortFilter.classify(
+            entry(processName: "postgres", port: 5173, webProjectFramework: .react)
+        )
+
+        XCTAssertEqual(classification.category, .database)
+        XCTAssertEqual(classification.displayName, "PostgreSQL")
+    }
+
     func testWebFilterExcludesAndroidDebugBridge() {
         XCTAssertFalse(
             DevelopmentPortFilter.includesWebServer(
@@ -518,7 +551,8 @@ final class DevelopmentPortFilterTests: XCTestCase {
         port: Int,
         executablePath: String? = nil,
         ancestorExecutablePaths: [String] = [],
-        webDevelopmentTool: WebDevelopmentTool? = nil
+        webDevelopmentTool: WebDevelopmentTool? = nil,
+        webProjectFramework: WebProjectFramework? = nil
     ) -> PortEntry {
         PortEntry(
             processName: processName,
@@ -528,7 +562,8 @@ final class DevelopmentPortFilterTests: XCTestCase {
             endpoint: "127.0.0.1:\(port)",
             executablePath: executablePath,
             ancestorExecutablePaths: ancestorExecutablePaths,
-            webDevelopmentTool: webDevelopmentTool
+            webDevelopmentTool: webDevelopmentTool,
+            webProjectFramework: webProjectFramework
         )
     }
 }

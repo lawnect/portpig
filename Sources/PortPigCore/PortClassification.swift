@@ -15,6 +15,7 @@ public enum PortCategory: String, CaseIterable, Codable, Hashable, Sendable {
 public struct PortClassification: Equatable, Sendable {
     public let category: PortCategory
     public let displayName: String
+    public let secondaryDisplayName: String?
     public let reason: String
     public let iconName: String?
     public let applicationBundlePath: String?
@@ -22,12 +23,14 @@ public struct PortClassification: Equatable, Sendable {
     public init(
         category: PortCategory,
         displayName: String,
+        secondaryDisplayName: String? = nil,
         reason: String,
         iconName: String? = nil,
         applicationBundlePath: String? = nil
     ) {
         self.category = category
         self.displayName = displayName
+        self.secondaryDisplayName = secondaryDisplayName
         self.reason = reason
         self.iconName = iconName
         self.applicationBundlePath = applicationBundlePath

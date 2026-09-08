@@ -43,25 +43,43 @@ public struct LsofPortScanner: Sendable {
             for: entries,
             processListOutput: processListOutput
         )
-        let commandResult = relevantPIDs.isEmpty ? nil : try? await Shell.run(
+        async let commandResult = relevantPIDs.isEmpty ? nil : try? Shell.run(
             executablePath: psPath,
             arguments: [
                 "-p", relevantPIDs.map(String.init).joined(separator: ","),
                 "-o", "pid=,command="
             ]
         )
-        let commandListOutput = commandResult?.exitCode == 0
-            ? commandResult?.standardOutput ?? ""
+        let listenerPIDs = Set(entries.map(\.pid)).sorted()
+        async let workingDirectoryResult = listenerPIDs.isEmpty ? nil : try? Shell.run(
+            executablePath: lsofPath,
+            arguments: [
+                "-a", "-p", listenerPIDs.map(String.init).joined(separator: ","),
+                "-d", "cwd", "-Fn"
+            ]
+        )
+        let (resolvedCommandResult, resolvedWorkingDirectoryResult) = await (
+            commandResult,
+            workingDirectoryResult
+        )
+        let commandListOutput = resolvedCommandResult?.exitCode == 0
+            ? resolvedCommandResult?.standardOutput ?? ""
+            : ""
+        let workingDirectoryListOutput = resolvedWorkingDirectoryResult?.exitCode == 0
+            ? resolvedWorkingDirectoryResult?.standardOutput ?? ""
             : ""
 
-        guard !processListOutput.isEmpty || !commandListOutput.isEmpty else {
+        guard !processListOutput.isEmpty
+                || !commandListOutput.isEmpty
+                || !workingDirectoryListOutput.isEmpty else {
             return entries
         }
 
         return Self.applyingProcessMetadata(
             to: entries,
             processListOutput: processListOutput,
-            commandListOutput: commandListOutput
+            commandListOutput: commandListOutput,
+            workingDirectoryListOutput: workingDirectoryListOutput
         )
     }
 
@@ -139,10 +157,12 @@ public struct LsofPortScanner: Sendable {
     static func applyingProcessMetadata(
         to entries: [PortEntry],
         processListOutput: String,
-        commandListOutput: String = ""
+        commandListOutput: String = "",
+        workingDirectoryListOutput: String = ""
     ) -> [PortEntry] {
         let processTable = parseProcessList(processListOutput)
         let commandHints = parseWebDevelopmentToolHints(commandListOutput)
+        let workingDirectories = parseWorkingDirectories(workingDirectoryListOutput)
 
         return entries.map { entry in
             let record = processTable[entry.pid]
@@ -176,7 +196,9 @@ public struct LsofPortScanner: Sendable {
                 userID: entry.userID ?? record?.userID,
                 executablePath: record?.executablePath,
                 ancestorExecutablePaths: ancestorPaths,
-                webDevelopmentTool: webDevelopmentTool
+                webDevelopmentTool: webDevelopmentTool,
+                webProjectFramework: workingDirectories[entry.pid]
+                    .flatMap(webProjectFramework(inWorkingDirectory:))
             )
         }
     }
@@ -246,6 +268,86 @@ public struct LsofPortScanner: Sendable {
         }
 
         return hints
+    }
+
+    private static func parseWorkingDirectories(_ output: String) -> [Int32: String] {
+        var workingDirectories: [Int32: String] = [:]
+        var currentPID: Int32?
+
+        for line in output.split(whereSeparator: \.isNewline) {
+            guard let field = line.first else {
+                continue
+            }
+
+            let value = String(line.dropFirst())
+            switch field {
+            case "p":
+                currentPID = Int32(value)
+            case "n":
+                if let currentPID, !value.isEmpty {
+                    workingDirectories[currentPID] = value
+                }
+            default:
+                continue
+            }
+        }
+
+        return workingDirectories
+    }
+
+    private static func webProjectFramework(
+        inWorkingDirectory workingDirectory: String
+    ) -> WebProjectFramework? {
+        let packageURL = URL(fileURLWithPath: workingDirectory)
+            .appendingPathComponent("package.json", isDirectory: false)
+
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: packageURL.path),
+              let fileSize = attributes[.size] as? NSNumber,
+              fileSize.intValue <= 1_048_576,
+              let data = try? Data(contentsOf: packageURL) else {
+            return nil
+        }
+
+        return webProjectFramework(inPackageJSON: data)
+    }
+
+    static func webProjectFramework(inPackageJSON data: Data) -> WebProjectFramework? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        let dependencySections = [
+            "dependencies", "devDependencies", "peerDependencies", "optionalDependencies"
+        ]
+        let dependencies = dependencySections.reduce(into: Set<String>()) { names, section in
+            guard let values = object[section] as? [String: Any] else {
+                return
+            }
+            names.formUnion(values.keys.map { $0.lowercased() })
+        }
+
+        let signatures: [(WebProjectFramework, [String])] = [
+            (.nextJS, ["next"]),
+            (.nuxt, ["nuxt", "nuxt3"]),
+            (.svelteKit, ["@sveltejs/kit"]),
+            (.solidStart, ["@solidjs/start"]),
+            (.remix, ["@remix-run/react"]),
+            (.gatsby, ["gatsby"]),
+            (.docusaurus, ["@docusaurus/core"]),
+            (.qwik, ["@builder.io/qwik", "@builder.io/qwik-city"]),
+            (.astro, ["astro"]),
+            (.angular, ["@angular/core"]),
+            (.svelte, ["svelte"]),
+            (.vue, ["vue"]),
+            (.react, ["react"]),
+            (.preact, ["preact"]),
+            (.solid, ["solid-js"]),
+            (.lit, ["lit"])
+        ]
+
+        return signatures.first { _, packages in
+            packages.contains(where: dependencies.contains)
+        }?.0
     }
 
     static func webDevelopmentTool(in commandLine: String) -> WebDevelopmentTool? {

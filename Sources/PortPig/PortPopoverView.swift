@@ -826,6 +826,11 @@ private struct PortDetailsView: View {
         entry.classification
     }
 
+    private var technologySummary: String {
+        let labels = technologyLabels(for: entry, classification: classification)
+        return [labels.primary, labels.secondary].compactMap { $0 }.joined(separator: " · ")
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             navigationHeader
@@ -938,10 +943,7 @@ private struct PortDetailsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text(
-                    "\(L10n.localizedProcessName(entry.processName)) · "
-                        + L10n.classificationName(classification.displayName)
-                )
+                Text(technologySummary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -1099,6 +1101,10 @@ private struct PortRowView: View {
         entry.classification
     }
 
+    private var labels: (primary: String, secondary: String?) {
+        technologyLabels(for: entry, classification: classification)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             HStack(spacing: 12) {
@@ -1115,18 +1121,20 @@ private struct PortRowView: View {
                     }
 
                     HStack(spacing: 5) {
-                        Text(L10n.localizedProcessName(entry.processName))
+                        Text(labels.primary)
                             .font(.subheadline)
                             .lineLimit(1)
 
-                        Text("·")
-                            .foregroundStyle(.tertiary)
+                        if let secondary = labels.secondary {
+                            Text("·")
+                                .foregroundStyle(.tertiary)
 
-                        Text(L10n.classificationName(classification.displayName))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .help(L10n.classificationReason(classification.reason))
+                            Text(secondary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .help(L10n.classificationReason(classification.reason))
+                        }
                     }
                 }
 
@@ -1292,6 +1300,23 @@ private struct PortRowView: View {
     }
 }
 
+private func technologyLabels(
+    for entry: PortEntry,
+    classification: PortClassification
+) -> (primary: String, secondary: String?) {
+    if entry.webProjectFramework != nil {
+        return (
+            L10n.classificationName(classification.displayName),
+            classification.secondaryDisplayName.map(L10n.classificationName)
+        )
+    }
+
+    return (
+        L10n.localizedProcessName(entry.processName),
+        L10n.classificationName(classification.displayName)
+    )
+}
+
 private struct ServiceIconView: View {
     let classification: PortClassification
     var size: CGFloat = 22
@@ -1364,7 +1389,7 @@ private struct ServiceIconView: View {
             return false
         }
 
-        return ["deno", "gradle", "kafka", "mysql", "nextjs", "openai"]
+        return ["deno", "gradle", "kafka", "mysql", "nextjs", "openai", "remix"]
             .contains(iconName)
     }
 }

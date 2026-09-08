@@ -132,6 +132,7 @@ make launch
 - Filter rules are persisted between launches. Up to two saved filters can be pinned beside `All` for quick access; additional filters remain available in the filter manager.
 - Process identity takes precedence over a conventional port, and ambiguous matches are labeled in the UI with their classification reason available on hover.
 - Executable paths identify compiled Rust, Go, SwiftPM, Node module, and Python virtual-environment processes. Commands for listening processes and their bounded ancestry are inspected in memory to retain only a sanitized web-tool hint; full command-line arguments are discarded.
+- JavaScript project working directories are inspected for a bounded `package.json`; only a framework hint such as SvelteKit, React, Vue, or SolidStart is retained.
 - Bundled application paths and process ancestry distinguish Dia, Serena, Codex, Zed, Figma, Tailscale, VS Code, and Cursor helpers; installed application icons are used when available.
 - Process termination uses `/bin/kill -9 <PID>` only for verified processes owned by the current user. Administrator, other-user, macOS, and unknown-owner processes are protected in the UI.
 - The UI is an `NSStatusBar` item backed by an `NSPopover` with SwiftUI content.

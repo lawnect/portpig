@@ -11,6 +11,25 @@ public enum WebDevelopmentTool: String, Hashable, Sendable {
     case vite
 }
 
+public enum WebProjectFramework: String, Hashable, Sendable {
+    case angular
+    case astro
+    case docusaurus
+    case gatsby
+    case lit
+    case nextJS
+    case nuxt
+    case preact
+    case qwik
+    case react
+    case remix
+    case solid
+    case solidStart
+    case svelte
+    case svelteKit
+    case vue
+}
+
 public struct PortEntry: Identifiable, Hashable, Sendable {
     public let processName: String
     public let pid: Int32
@@ -22,6 +41,7 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
     public let executablePath: String?
     public let ancestorExecutablePaths: [String]
     public let webDevelopmentTool: WebDevelopmentTool?
+    public let webProjectFramework: WebProjectFramework?
 
     public var id: String {
         "\(pid)-\(protocolName)-\(port)"
@@ -54,7 +74,8 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
         userID: UInt32? = nil,
         executablePath: String? = nil,
         ancestorExecutablePaths: [String] = [],
-        webDevelopmentTool: WebDevelopmentTool? = nil
+        webDevelopmentTool: WebDevelopmentTool? = nil,
+        webProjectFramework: WebProjectFramework? = nil
     ) {
         self.processName = processName
         self.pid = pid
@@ -66,6 +87,7 @@ public struct PortEntry: Identifiable, Hashable, Sendable {
         self.executablePath = executablePath
         self.ancestorExecutablePaths = ancestorExecutablePaths
         self.webDevelopmentTool = webDevelopmentTool
+        self.webProjectFramework = webProjectFramework
     }
 
     private var browserHost: String {

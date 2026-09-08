@@ -193,6 +193,7 @@ final class PortListViewModel: ObservableObject {
             entry.endpoint,
             classification.displayName,
             L10n.classificationName(classification.displayName),
+            classification.secondaryDisplayName ?? "",
             classification.reason,
             L10n.classificationReason(classification.reason)
         ]

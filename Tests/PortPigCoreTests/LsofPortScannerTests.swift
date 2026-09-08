@@ -166,6 +166,64 @@ final class LsofPortScannerTests: XCTestCase {
         }
     }
 
+    func testRecognizesProjectFrameworksAndMetaFrameworkPrecedence() throws {
+        let cases: [([String], WebProjectFramework)] = [
+            (["react", "next"], .nextJS),
+            (["vue", "nuxt"], .nuxt),
+            (["svelte", "@sveltejs/kit"], .svelteKit),
+            (["solid-js", "@solidjs/start"], .solidStart),
+            (["react", "@remix-run/react"], .remix),
+            (["react", "gatsby"], .gatsby),
+            (["react", "@docusaurus/core"], .docusaurus),
+            (["@builder.io/qwik"], .qwik),
+            (["astro", "react"], .astro),
+            (["@angular/core"], .angular),
+            (["svelte"], .svelte),
+            (["vue"], .vue),
+            (["react"], .react),
+            (["preact"], .preact),
+            (["solid-js"], .solid),
+            (["lit"], .lit)
+        ]
+
+        for (dependencies, expectedFramework) in cases {
+            let package = [
+                "dependencies": Dictionary(uniqueKeysWithValues: dependencies.map { ($0, "latest") })
+            ]
+            let data = try JSONSerialization.data(withJSONObject: package)
+
+            XCTAssertEqual(
+                LsofPortScanner.webProjectFramework(inPackageJSON: data),
+                expectedFramework
+            )
+        }
+    }
+
+    func testEnrichesEntryWithFrameworkWithoutRetainingWorkingDirectory() throws {
+        let projectDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: projectDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: projectDirectory) }
+
+        let package = """
+        {"dependencies":{"svelte":"^5.0.0","@sveltejs/kit":"^2.0.0","vite":"^7.0.0"}}
+        """
+        try Data(package.utf8).write(to: projectDirectory.appendingPathComponent("package.json"))
+
+        let result = LsofPortScanner.applyingProcessMetadata(
+            to: [entry(processName: "node", pid: 700, port: 5173)],
+            processListOutput: "700 1 501 /opt/homebrew/bin/node",
+            commandListOutput: "700 node /project/node_modules/vite/bin/vite.js",
+            workingDirectoryListOutput: "p700\nfcwd\nn\(projectDirectory.path)"
+        ).first
+
+        XCTAssertEqual(result?.webProjectFramework, .svelteKit)
+        XCTAssertEqual(result?.webDevelopmentTool, .vite)
+    }
+
     func testBrowserURLUsesLocalhostForWildcardAddresses() {
         XCTAssertEqual(
             browserURL(endpoint: "*:3000", port: 3000)?.absoluteString,

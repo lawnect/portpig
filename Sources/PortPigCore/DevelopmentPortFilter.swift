@@ -112,7 +112,32 @@ public enum DevelopmentPortFilter {
 
         // A process name is stronger evidence than a conventional port. For example,
         // PostgreSQL listening on 8080 is still a database, not a web server.
-        if let service = namedProcessService, service.category != .development {
+        if let service = namedProcessService,
+           service.category != .development,
+           service.category != .web {
+            return PortClassification(
+                category: service.category,
+                displayName: service.name,
+                reason: classificationReason(for: entry, fallback: "Recognized process: \(entry.processName)"),
+                iconName: service.iconName
+            )
+        }
+
+        if let webProjectFramework = entry.webProjectFramework {
+            let service = service(for: webProjectFramework)
+            return PortClassification(
+                category: service.category,
+                displayName: service.name,
+                secondaryDisplayName: secondaryDisplayName(
+                    for: entry,
+                    primaryService: service
+                ),
+                reason: "Recognized project dependency: \(service.name)",
+                iconName: service.iconName
+            )
+        }
+
+        if let service = namedProcessService, service.category == .web {
             return PortClassification(
                 category: service.category,
                 displayName: service.name,
@@ -480,19 +505,19 @@ public enum DevelopmentPortFilter {
         case "astro":
             return Service(category: .web, name: "Astro", iconName: "astro")
         case "gradio":
-            return Service(category: .web, name: "Gradio", iconName: "python")
+            return Service(category: .web, name: "Gradio", iconName: "gradio")
         case "vite":
             return Service(category: .web, name: "Vite", iconName: "vite")
         case "next", "next-server":
             return Service(category: .web, name: "Next.js", iconName: "nextjs")
         case "nuxt":
-            return Service(category: .web, name: "Nuxt", iconName: "node")
+            return Service(category: .web, name: "Nuxt", iconName: "nuxt")
         case "parcel":
-            return Service(category: .web, name: "Parcel", iconName: "node")
+            return Service(category: .web, name: "Parcel", iconName: "parcel")
         case "storybook":
-            return Service(category: .web, name: "Storybook", iconName: "node")
+            return Service(category: .web, name: "Storybook", iconName: "storybook")
         case "hugo":
-            return Service(category: .web, name: "Hugo")
+            return Service(category: .web, name: "Hugo", iconName: "hugo")
         case "gunicorn":
             return Service(category: .web, name: "Gunicorn", iconName: "gunicorn")
         case "uvicorn":
@@ -598,17 +623,77 @@ public enum DevelopmentPortFilter {
         case .astro:
             Service(category: .web, name: "Astro", iconName: "astro")
         case .gradio:
-            Service(category: .web, name: "Gradio", iconName: "python")
+            Service(category: .web, name: "Gradio", iconName: "gradio")
         case .nextJS:
             Service(category: .web, name: "Next.js", iconName: "nextjs")
         case .nuxt:
-            Service(category: .web, name: "Nuxt", iconName: "node")
+            Service(category: .web, name: "Nuxt", iconName: "nuxt")
         case .parcel:
-            Service(category: .web, name: "Parcel", iconName: "node")
+            Service(category: .web, name: "Parcel", iconName: "parcel")
         case .storybook:
-            Service(category: .web, name: "Storybook", iconName: "node")
+            Service(category: .web, name: "Storybook", iconName: "storybook")
         case .vite:
             Service(category: .web, name: "Vite", iconName: "vite")
+        }
+    }
+
+    private static func service(for framework: WebProjectFramework) -> Service {
+        switch framework {
+        case .angular:
+            Service(category: .web, name: "Angular", iconName: "angular")
+        case .astro:
+            Service(category: .web, name: "Astro", iconName: "astro")
+        case .docusaurus:
+            Service(category: .web, name: "Docusaurus", iconName: "docusaurus")
+        case .gatsby:
+            Service(category: .web, name: "Gatsby", iconName: "gatsby")
+        case .lit:
+            Service(category: .web, name: "Lit", iconName: "lit")
+        case .nextJS:
+            Service(category: .web, name: "Next.js", iconName: "nextjs")
+        case .nuxt:
+            Service(category: .web, name: "Nuxt", iconName: "nuxt")
+        case .preact:
+            Service(category: .web, name: "Preact", iconName: "preact")
+        case .qwik:
+            Service(category: .web, name: "Qwik", iconName: "qwik")
+        case .react:
+            Service(category: .web, name: "React", iconName: "react")
+        case .remix:
+            Service(category: .web, name: "Remix", iconName: "remix")
+        case .solid:
+            Service(category: .web, name: "Solid", iconName: "solid")
+        case .solidStart:
+            Service(category: .web, name: "SolidStart", iconName: "solid")
+        case .svelte:
+            Service(category: .web, name: "Svelte", iconName: "svelte")
+        case .svelteKit:
+            Service(category: .web, name: "SvelteKit", iconName: "svelte")
+        case .vue:
+            Service(category: .web, name: "Vue", iconName: "vue")
+        }
+    }
+
+    private static func secondaryDisplayName(
+        for entry: PortEntry,
+        primaryService: Service
+    ) -> String? {
+        if let tool = entry.webDevelopmentTool {
+            let toolService = service(for: tool)
+            if toolService.name != primaryService.name {
+                return toolService.name
+            }
+        }
+
+        switch normalizedProcessName(entry.processName) {
+        case "node", "nodejs", "npm", "npx", "pnpm", "yarn":
+            return "Node.js"
+        case "bun", "bunx":
+            return "Bun"
+        case "deno":
+            return "Deno"
+        default:
+            return nil
         }
     }
 }

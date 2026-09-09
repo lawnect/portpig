@@ -1,19 +1,39 @@
 # PortPig
 
-PortPig is a lightweight macOS menu bar app for checking local listening TCP
-ports and killing the owning process.
+<p align="center">
+  <strong>See what is listening. Open it, copy it, or stop it.</strong>
+</p>
 
-## Requirements
+<p align="center">
+  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-111111?logo=apple">
+  <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white">
+  <a href="https://github.com/lawnect/portpig/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/lawnect/portpig?color=2563EB"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-22A06B"></a>
+</p>
 
-- macOS 13 or later
+<p align="center">
+  <img src="docs/images/portpig-overview.png" width="446" alt="PortPig showing local development services in the macOS menu bar">
+</p>
 
-## Install with Homebrew
+PortPig is a lightweight macOS menu bar app that finds local listening TCP
+ports, identifies the services and development stacks behind them, and puts the
+actions you need next to each port.
+
+## Install
 
 ```sh
 brew install --cask lawnect/tap/portpig
 ```
 
-To upgrade or remove PortPig later:
+Requires macOS 13 Ventura or later. PortPig runs in the menu bar without adding
+an icon to the Dock.
+
+| Find | Understand | Act |
+| --- | --- | --- |
+| See local TCP listeners in one place. | Recognize frameworks, runtimes, databases, and developer tools. | Copy an address, open a web service, inspect details, or stop a process. |
+| Search by port, service, or address. | Distinguish stacks such as SvelteKit · Vite from a generic Node.js process. | Save and pin filters for the services you care about. |
+
+To upgrade or remove PortPig:
 
 ```sh
 brew upgrade --cask portpig
